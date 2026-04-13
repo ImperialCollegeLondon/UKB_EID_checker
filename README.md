@@ -103,7 +103,7 @@ The following are automatically excluded from the search to avoid noise and self
 your-repo/
 ├── find_matching_eids.sh
 ├── search_eids_in_repo.sh
-├── eid_frequency_2024-01-01.csv   ← your EID frequency export
+├── eid_frequency_[Repo name].csv   ← your EID frequency export
 └── ../
     └── bridge_18545_40616_47602.txt  ← your bridge file (one level up)
 ```
