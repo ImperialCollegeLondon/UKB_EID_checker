@@ -1,6 +1,6 @@
 # EID Search Toolkit
 
-A pair of Bash scripts for auditing a codebase by finding which Entity IDs (EIDs) from a frequency report appear in a bridge file, then locating every occurrence of those EIDs across a repository.
+A pair of Bash scripts for auditing a codebase by finding which Encrypted IDs (EIDs) from the [UKB audit tool](https://github.com/UK-Biobank/UKB-Git-Audit-Tool) frequency report appear in a bridge file, then locating every occurrence of those EIDs across a repository.
 
 ---
 
