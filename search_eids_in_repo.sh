@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
-# search_eids_in_repo.sh
-# Recursively searches all files in a repo for EIDs listed in matching_eids.txt
-# Output: a txt file with the matching EID, file path, and the line containing it.
+# find_and_search_eids.sh
+# 1. Finds EIDs from the CSV that appear in the bridge text file.
+# 2. Searches a repo for every matched EID and reports file locations.
+
+set -euo pipefail
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-EIDS_FILE="matching_eids.txt"       # produced by find_matching_eids.sh
-REPO_DIR="."                        # root of the cloned repo (same directory)
-OUTPUT_FILE="eid_repo_matches.txt"  # results file
+CSV_FILE=$(ls eid_frequency_*.csv 2>/dev/null | head -n 1)
+BRIDGE_FILE="../bridge_18545_40616_47602.txt"
+REPO_DIR="."
+OUTPUT_FILE="eid_repo_matches.txt"
 
 # ── Sanity checks ──────────────────────────────────────────────────────────────
-if [[ ! -f "$EIDS_FILE" ]]; then
-    echo "ERROR: EID list not found: $EIDS_FILE" >&2
-    echo "Run find_matching_eids.sh first to generate it." >&2
+if [[ ! -f "$CSV_FILE" ]]; then
+    echo "ERROR: CSV file not found (expected eid_frequency_*.csv)" >&2
+    exit 1
+fi
+
+if [[ ! -f "$BRIDGE_FILE" ]]; then
+    echo "ERROR: Bridge file not found: $BRIDGE_FILE" >&2
     exit 1
 fi
 
@@ -20,33 +27,60 @@ if [[ ! -d "$REPO_DIR" ]]; then
     exit 1
 fi
 
-EID_COUNT=$(wc -l < "$EIDS_FILE")
-echo "Searching for $EID_COUNT EIDs in: $(realpath "$REPO_DIR")"
+# ── Step 1: Extract EIDs from CSV and match against bridge file ────────────────
+echo "=== Step 1: Finding matching EIDs ==="
+
+TMP_EIDS=$(mktemp)
+trap 'rm -f "$TMP_EIDS"' EXIT
+
+tail -n +2 "$CSV_FILE" | cut -d',' -f1 | tr -d '\r' | sort > "$TMP_EIDS"
+echo "Total EIDs in CSV: $(wc -l < "$TMP_EIDS")"
+
+TMP_MATCHED=$(mktemp)
+trap 'rm -f "$TMP_EIDS" "$TMP_MATCHED"' EXIT
+
+grep -Fw -o -f "$TMP_EIDS" "$BRIDGE_FILE" | sort -u > "$TMP_MATCHED"
+MATCH_COUNT=$(wc -l < "$TMP_MATCHED")
+
+if [[ "$MATCH_COUNT" -eq 0 ]]; then
+    {
+        echo "EID Search Results"
+        echo "Generated: $(date)"
+        echo "================================================================"
+        echo ""
+        echo "No matching EIDs found between CSV and bridge file. Nothing to search."
+    } > "$OUTPUT_FILE"
+    echo "No matching EIDs found. Results written to: $OUTPUT_FILE"
+    exit 0
+fi
+
+echo "Matching EIDs found: $MATCH_COUNT"
+
+# ── Step 2: Search repo for each matched EID ──────────────────────────────────
+echo ""
+echo "=== Step 2: Searching repo for matched EIDs ==="
+echo "Searching in: $(realpath "$REPO_DIR")"
 echo "This may take a moment..."
 
-# ── Write header to output file ────────────────────────────────────────────────
 {
     echo "EID Search Results"
     echo "Generated: $(date)"
-    echo "EIDs searched: $EID_COUNT"
+    echo "EIDs searched: $MATCH_COUNT"
     echo "Repo searched: $(realpath "$REPO_DIR")"
     echo "================================================================"
     echo ""
 } > "$OUTPUT_FILE"
 
-# ── Search ─────────────────────────────────────────────────────────────────────
-# Scans all files except images and the script's own input/output files.
-MATCH_COUNT=0
+REPO_MATCH_COUNT=0
 
 while IFS= read -r EID; do
-    [[ -z "$EID" ]] && continue  # skip blank lines
+    [[ -z "$EID" ]] && continue
 
     while IFS= read -r RESULT; do
-        FILE_PATH=$(echo "$RESULT" | cut -d':' -f1)
-        LINE_NUM=$(echo "$RESULT"  | cut -d':' -f2)
+        FILE_PATH=$(echo "$RESULT"    | cut -d':' -f1)
+        LINE_NUM=$(echo "$RESULT"     | cut -d':' -f2)
         LINE_CONTENT=$(echo "$RESULT" | cut -d':' -f3-)
 
-        # Extract 10 characters either side of the EID for context
         CONTEXT=$(echo "$LINE_CONTENT" | grep -oP ".{0,10}${EID}.{0,10}")
 
         {
@@ -58,26 +92,30 @@ while IFS= read -r EID; do
             echo "----------------------------------------------------------------"
         } >> "$OUTPUT_FILE"
 
-        (( MATCH_COUNT++ ))
+        (( REPO_MATCH_COUNT++ ))
 
-    done < <(grep -rFwHn "$EID" "$REPO_DIR" \
-        --exclude="*.png"  \
-        --exclude="*.PNG"  \
-        --exclude="*.jpg"  \
-        --exclude="*.JPG"  \
-        --exclude="*.jpeg" \
-        --exclude="*.JPEG" \
-        2>/dev/null \
-        | grep -v "/eid_repo_matches\.txt:" \
-        | grep -v "/matching_eids\.txt:" \
+    done < <(grep -rFwHn "$EID" "$REPO_DIR"  \
+        --exclude="*.png"                     \
+        --exclude="*.PNG"                     \
+        --exclude="*.jpg"                     \
+        --exclude="*.JPG"                     \
+        --exclude="*.jpeg"                    \
+        --exclude="*.JPEG"                    \
+        2>/dev/null                           \
+        | grep -v "/eid_repo_matches\.txt:"   \
         | grep -v "/eid_frequency_[^:]*\.csv:" \
         | grep -v "/REPOSITORY_AUDIT_REPORT_[^:]*\.csv:")
 
-done < "$EIDS_FILE"
+done < "$TMP_MATCHED"
 
 # ── Summary ────────────────────────────────────────────────────────────────────
-echo "" >> "$OUTPUT_FILE"
-echo "Total matches found: $MATCH_COUNT" >> "$OUTPUT_FILE"
+{
+    echo ""
+    echo "Total repo matches found: $REPO_MATCH_COUNT"
+} >> "$OUTPUT_FILE"
 
-echo "Done. Total matches found: $MATCH_COUNT"
-echo "Results written to: $OUTPUT_FILE"
+echo ""
+echo "=== Done ==="
+echo "EIDs matched in bridge file : $MATCH_COUNT"
+echo "Repo occurrences found      : $REPO_MATCH_COUNT"
+echo "Results written to          : $OUTPUT_FILE"
