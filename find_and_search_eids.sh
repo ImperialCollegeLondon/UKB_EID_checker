@@ -92,7 +92,7 @@ while IFS= read -r EID; do
             echo "----------------------------------------------------------------"
         } >> "$OUTPUT_FILE"
 
-        (( REPO_MATCH_COUNT++ ))
+        REPO_MATCH_COUNT=$(( REPO_MATCH_COUNT + 1 ))
 
     done < <(grep -rFwHn "$EID" "$REPO_DIR"  \
         --exclude="*.png"                     \
