@@ -98,16 +98,56 @@ The following are automatically excluded from the search to avoid noise and self
 
 ## Typical Workflow
 
+### Step 1 — Run the UKB Audit Tool
+
+Use the [UKB Git Audit Tool](https://github.com/UK-Biobank/UKB-Git-Audit-Tool) to clone and audit the target repository. This will download the repo and generate the `eid_frequency_*.csv` file that this script depends on.
+
+Follow the audit tool's own instructions to complete this step before proceeding.
+
+---
+
+### Step 2 — Get the bridge file
+
+The bridge file is stored on the UKB drive at:
+
 ```
-your-repo/
-├── find_and_search_eids.sh
-├── eid_frequency_[Repo name].csv   ← your EID frequency export
-└── ../
-    └── bridge_18545_40616_47602.txt  ← your bridge file (one level up)
+ukb$:\Bridge file\bridge_18545_40616_47602.txt
 ```
 
+Copy it to the directory **one level above** the cloned repo, so the folder structure looks like this:
+
+```
+parent-folder/
+├── bridge_18545_40616_47602.txt   ← bridge file goes here
+└── your-repo/                     ← the cloned repo
+    ├── eid_frequency_[Repo name].csv
+    └── ... (all repo files)
+```
+
+---
+
+### Step 3 — Copy the script into the repo
+
+Copy `find_and_search_eids.sh` into the **root of the cloned repo** (the same directory as the `eid_frequency_*.csv` file):
+
+```
+parent-folder/
+├── bridge_18545_40616_47602.txt
+└── your-repo/
+    ├── find_and_search_eids.sh    ← script goes here
+    ├── eid_frequency_[Repo name].csv
+    └── ... (all repo files)
+```
+
+---
+
+### Step 4 — Run the script
+
+Open a terminal, navigate to the repo root, and run:
+
 ```bash
+cd path/to/your-repo
 bash find_and_search_eids.sh
 ```
 
-Results are written to `eid_repo_matches.txt`.
+The script will print progress to the terminal as it runs. Results are written to `eid_repo_matches.txt` in the same directory.
