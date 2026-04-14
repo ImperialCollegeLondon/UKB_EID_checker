@@ -39,7 +39,7 @@ echo "Total EIDs in CSV: $(wc -l < "$TMP_EIDS")"
 TMP_MATCHED=$(mktemp)
 trap 'rm -f "$TMP_EIDS" "$TMP_MATCHED"' EXIT
 
-grep -Fw -o -f "$TMP_EIDS" "$BRIDGE_FILE" | sort -u > "$TMP_MATCHED"
+grep -Fw -o -f "$TMP_EIDS" "$BRIDGE_FILE" | sort -u > "$TMP_MATCHED" || true
 MATCH_COUNT=$(wc -l < "$TMP_MATCHED")
 
 if [[ "$MATCH_COUNT" -eq 0 ]]; then
@@ -104,7 +104,8 @@ while IFS= read -r EID; do
         2>/dev/null                           \
         | grep -v "/eid_repo_matches\.txt:"   \
         | grep -v "/eid_frequency_[^:]*\.csv:" \
-        | grep -v "/REPOSITORY_AUDIT_REPORT_[^:]*\.csv:")
+        | grep -v "/REPOSITORY_AUDIT_REPORT_[^:]*\.csv:" \
+        || true)
 
 done < "$TMP_MATCHED"
 
